@@ -24,12 +24,13 @@ defmodule ZeroPath.MCP.Tools.GetIssue do
           {:reply, Response.text(Response.tool(), formatted), frame}
 
         {:error, error} ->
-          {:reply, Response.error(Response.tool(), "Error: #{error}"), frame}
+          error_message = if is_binary(error), do: error, else: inspect(error)
+          {:reply, Response.error(Response.tool(), error_message), frame}
       end
     end
   end
 
-  defp format_issue_response(%{"error" => error}) do
+  defp format_issue_response(%{"error" => error}) when not is_nil(error) do
     "Error: #{error}"
   end
 

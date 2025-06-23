@@ -41,7 +41,7 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
 
   defp maybe_add_org_id(payload, _), do: payload
 
-  defp format_vulnerabilities(%{"error" => error}) do
+  defp format_vulnerabilities(%{"error" => error}) when not is_nil(error) do
     "Error: #{error}"
   end
 

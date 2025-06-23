@@ -7,15 +7,26 @@ defmodule ZeroPath.MCP.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      Hermes.Server.Registry,
-      {ZeroPath.MCP.Server, transport: {:sse, base_url: "/", post_path: "/message", start: true}},
-      {Bandit, plug: ZeroPath.MCP.Router}
-    ]
+    transport = System.get_env("TRANSPORT", "stdio")
+
+    children = [Hermes.Server.Registry | transport_children(transport)]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ZeroPath.MCP.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp transport_children("stdio") do
+    [
+      {ZeroPath.MCP.Server, transport: :stdio}
+    ]
+  end
+
+  defp transport_children("sse") do
+    [
+      {ZeroPath.MCP.Server, transport: {:sse, base_url: "/", post_path: "/message", start: true}},
+      {Bandit, plug: ZeroPath.MCP.Router}
+    ]
   end
 end
