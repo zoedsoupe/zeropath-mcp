@@ -172,8 +172,8 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
 
   defp format_pagination(_), do: ""
 
-  defp format_severity_indicator(severity) do
-    case String.downcase(severity || "") do
+  defp format_severity_indicator(severity) when is_binary(severity) do
+    case String.downcase(severity) do
       "critical" -> "[CRITICAL]"
       "high" -> "[HIGH]"
       "medium" -> "[MEDIUM]"
@@ -181,4 +181,16 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
       _ -> "[UNKNOWN]"
     end
   end
+  
+  defp format_severity_indicator(severity) when is_number(severity) do
+    cond do
+      severity >= 9.0 -> "[CRITICAL]"
+      severity >= 7.0 -> "[HIGH]"
+      severity >= 4.0 -> "[MEDIUM]"
+      severity >= 0.1 -> "[LOW]"
+      true -> "[UNKNOWN]"
+    end
+  end
+  
+  defp format_severity_indicator(_), do: "[UNKNOWN]"
 end
