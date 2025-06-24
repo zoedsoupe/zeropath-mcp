@@ -12,7 +12,8 @@ This MCP server enables AI assistants to search, retrieve, and manage security v
 
 ## Prerequisites
 
-- Elixir 1.19 or higher
+- Elixir 1.17 or higher
+- Erlang/OTP 27.3.2+
 - Zeropath API credentials
 
 ## Installation
@@ -44,7 +45,12 @@ Start the server with:
 mix run --no-halt
 ```
 
-The server will start on `http://localhost:4000` with the MCP SSE endpoint at `/sse` and `/message`.
+By default, the server runs in STDIO mode. For SSE transport:
+```bash
+TRANSPORT=sse HTTP_SERVER=true mix run --no-halt
+```
+
+The server will start on `http://localhost:4010` with endpoints at `/mcp/sse` and `/mcp/message`.
 
 ### Building a Release
 
@@ -54,20 +60,36 @@ To create a production-ready binary:
 MIX_ENV=prod mix release
 ```
 
-This will generate a self-contained release in `_build/prod/rel/zeropath_mcp/`.
+This will generate a self-contained release in `_build/prod/rel/zero_path_mcp/`.
 
 To run the release:
 ```bash
-_build/prod/rel/zeropath_mcp/bin/zeropath_mcp start
+_build/prod/rel/zero_path_mcp/bin/zero_path_mcp start
+```
+
+### Docker
+
+Build and run with Docker:
+```bash
+docker build -t zeropath-mcp .
+docker run -e TRANSPORT=sse -e ZEROPATH_TOKEN_ID=xxx -e ZEROPATH_TOKEN_SECRET=yyy -e ZEROPATH_ORG_ID=zzz -p 4010:4010 zeropath-mcp
 ```
 
 ### Configuration
 
 The server can be configured through environment variables:
 
-- `ZEROPATH_TOKEN_ID` (required) - Your Zeropath API token ID
-- `ZEROPATH_TOKEN_SECRET` (required) - Your Zeropath API token secret
-- `ZEROPATH_ORG_ID` (required) - Your Zeropath organization ID
+**Required:**
+- `ZEROPATH_TOKEN_ID` - Your Zeropath API token ID
+- `ZEROPATH_TOKEN_SECRET` - Your Zeropath API token secret
+- `ZEROPATH_ORG_ID` - Your Zeropath organization ID
+
+**Optional:**
+- `TRANSPORT` - Transport type: `stdio` (default), `sse`, or `http`
+- `HTTP_SERVER` - Set to enable HTTP server for SSE/HTTP transports
+- `LOG_LEVEL` - Log level for production (`debug`, `info`, `warning`, `error`)
+- `RATE_LIMIT_REQUESTS` - Max requests per minute (default: 100)
+- `RATE_LIMIT_WINDOW_MS` - Rate limit window (default: 60000)
 
 ## Available Tools
 

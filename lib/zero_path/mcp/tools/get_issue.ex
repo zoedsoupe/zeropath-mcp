@@ -1,23 +1,44 @@
 defmodule ZeroPath.MCP.Tools.GetIssue do
-  @moduledoc "Get a specific vulnerability issue by its ID"
+  @moduledoc """
+  Get detailed information about a specific vulnerability issue.
+
+  This tool retrieves comprehensive details about a vulnerability including:
+  - Complete vulnerability description and impact
+  - Affected code segments and file locations
+  - Available patches with code diffs
+  - Severity scores and CWE classifications
+  - Triage status and validation information
+
+  ## Usage
+  First use search_vulnerabilities to find issues and get their IDs, then:
+  - get_issue("issue_abc123") - Get full details for this issue
+
+  ## Response includes
+  - Issue metadata (ID, status, severity, type)
+  - Affected code with line numbers
+  - Patch information with git-style diffs (if available)
+  - References and additional context
+  """
 
   use Hermes.Server.Component, type: :tool
 
   alias Hermes.Server.Response
-  alias ZeroPath.MCP.Client
+  alias ZeroPath.MCP.{Client, Config}
 
   schema do
-    field(:issue_id, :string, required: true, description: "The ID of the issue to retrieve")
+    field(:issue_id, :string,
+      required: true,
+      description: "The issue ID obtained from search_vulnerabilities tool (e.g., 'issue_abc123')"
+    )
   end
 
   @impl true
   def execute(%{issue_id: issue_id}, frame) do
-    org_id = System.get_env("ZEROPATH_ORG_ID")
-
-    if !org_id do
-      {:reply, Response.error(Response.tool(), "ZEROPATH_ORG_ID environment variable not set"),
-       frame}
+    if !Config.zeropath_configured?() do
+      {:reply, Response.error(Response.tool(), "ZeroPath API not configured"), frame}
     else
+      org_id = Config.zeropath_org_id()
+
       case Client.get_issue(issue_id, org_id) do
         {:ok, response} ->
           formatted = format_issue_response(response)

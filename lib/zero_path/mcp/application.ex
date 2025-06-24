@@ -1,18 +1,21 @@
 defmodule ZeroPath.MCP.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
 
+  alias ZeroPath.MCP.Config
+
   @impl true
   def start(_type, _args) do
-    transport = System.get_env("TRANSPORT", "stdio")
+    transport = Config.transport_type()
 
-    children = [Hermes.Server.Registry | transport_children(transport)]
+    base_children = [
+      Hermes.Server.Registry,
+      ZeroPath.MCP.RateLimiterTable
+    ]
+    
+    children = base_children ++ transport_children(transport)
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ZeroPath.MCP.Supervisor]
     Supervisor.start_link(children, opts)
   end
@@ -24,8 +27,20 @@ defmodule ZeroPath.MCP.Application do
   end
 
   defp transport_children("sse") do
+    start? = Config.http_server?()
+
     [
-      {ZeroPath.MCP.Server, transport: {:sse, base_url: "/", post_path: "/message", start: true}},
+      {ZeroPath.MCP.Server,
+       transport: {:sse, base_url: "/mcp", post_path: "/mcp/message", start: start?}},
+      {Bandit, plug: ZeroPath.MCP.Router}
+    ]
+  end
+
+  defp transport_children("http") do
+    start? = Config.http_server?()
+
+    [
+      {ZeroPath.MCP.Server, transport: {:streamable_http, start: start?}},
       {Bandit, plug: ZeroPath.MCP.Router}
     ]
   end

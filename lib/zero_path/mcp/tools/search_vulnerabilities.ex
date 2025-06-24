@@ -1,18 +1,43 @@
 defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
-  @moduledoc "Search for vulnerabilities using the Zeropath API"
+  @moduledoc """
+  Search for security vulnerabilities in your codebase using the ZeroPath API.
+
+  This tool searches the ZeroPath vulnerability database and returns:
+  - Issue IDs (required for get_issue and approve_patch tools)
+  - Vulnerability details (type, severity, affected files, CWEs)
+  - Patch availability status and patch IDs
+  - Triage status and validation information
+
+  ## Search Examples
+  - "sql injection" - Find SQL injection vulnerabilities
+  - "high severity" - Find high severity issues
+  - "xss" - Find cross-site scripting vulnerabilities
+  - "unpatchable" - Find issues without available patches
+  - Leave empty to retrieve all vulnerabilities
+
+  ## Workflow
+  1. Use this tool first to search and get issue IDs
+  2. Use get_issue(issue_id) for detailed information
+  3. Use approve_patch(issue_id) to approve available patches
+
+  Returns paginated results with issue IDs prominently displayed for use with other tools.
+  """
 
   use Hermes.Server.Component, type: :tool
 
   alias Hermes.Server.Response
-  alias ZeroPath.MCP.Client
+  alias ZeroPath.MCP.{Client, Config}
 
   schema do
-    field(:search_query, :string, description: "Search query to filter vulnerabilities")
+    field(:search_query, :string,
+      description:
+        "Optional search query to filter vulnerabilities. Examples: 'sql injection', 'high severity', 'xss', or leave empty for all issues"
+    )
   end
 
   @impl true
   def execute(params, frame) do
-    org_id = System.get_env("ZEROPATH_ORG_ID")
+    org_id = Config.zeropath_org_id()
 
     payload =
       %{}
@@ -50,8 +75,14 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
     patchable = Enum.count(issues, &(!&1["unpatchable"]))
     unpatchable = Enum.count(issues, & &1["unpatchable"])
 
-    header =
-      "Found #{total} vulnerability issues. #{patchable} are patchable, #{unpatchable} are unpatchable.\n\n"
+    header = """
+    ====== VULNERABILITY SEARCH RESULTS ======
+    Total Issues: #{total}
+    Patchable: #{patchable}
+    Unpatchable: #{unpatchable}
+    ==========================================
+
+    """
 
     issues_text =
       issues
@@ -69,24 +100,26 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
   end
 
   defp format_issue({issue, index}) do
+    severity_indicator = format_severity_indicator(issue["severity"])
+    patch_status = if issue["unpatchable"], do: "[UNPATCHABLE]", else: "[PATCHABLE]"
+
     parts = [
-      "Issue #{index}:",
-      "ID: #{issue["id"]}",
+      "---------- Issue ##{index} #{patch_status} ----------",
+      ">>> ISSUE ID: #{issue["id"]} <<<",
+      "#{severity_indicator} Severity: #{issue["severity"] || "unknown"}",
       "Status: #{issue["status"] || "unknown"}"
     ]
 
     parts =
       parts
       |> maybe_add_field(issue, "type", "Type")
-      |> maybe_add_patchable(issue)
       |> maybe_add_field(issue, "language", "Language")
       |> maybe_add_field(issue, "score", "Score")
-      |> maybe_add_field(issue, "severity", "Severity")
       |> maybe_add_field(issue, "generatedTitle", "Title")
       |> maybe_add_field(issue, "generatedDescription", "Description")
       |> maybe_add_field(issue, "affectedFile", "Affected File")
       |> maybe_add_cwes(issue)
-      |> maybe_add_field(issue, "validated", "Validation Status")
+      |> maybe_add_field(issue, "validated", "Validation")
       |> maybe_add_field(issue, "triagePhase", "Triage Phase")
       |> maybe_add_patch_info(issue)
 
@@ -100,13 +133,6 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
     end
   end
 
-  defp maybe_add_patchable(parts, issue) do
-    case issue["unpatchable"] do
-      nil -> parts
-      unpatchable -> parts ++ ["Patchable: #{!unpatchable}"]
-    end
-  end
-
   defp maybe_add_cwes(parts, %{"cwes" => cwes}) when is_list(cwes) and length(cwes) > 0 do
     parts ++ ["CWEs: #{Enum.join(cwes, ", ")}"]
   end
@@ -115,10 +141,10 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
 
   defp maybe_add_patch_info(parts, %{"vulnerabilityPatch" => patch, "unpatchable" => false}) do
     patch_parts = [
-      "\n--- PATCH INFORMATION ---",
-      "PATCH ID: #{patch["id"] || "N/A"}",
-      "------------------------",
-      "Has Patch: Yes"
+      "",
+      "[PATCH AVAILABLE]",
+      "  - PATCH ID: #{patch["id"] || "N/A"}",
+      "  - To apply: approve_patch(\"#{patch["issueId"]}\")"
     ]
 
     patch_parts =
@@ -145,4 +171,14 @@ defmodule ZeroPath.MCP.Tools.SearchVulnerabilities do
   end
 
   defp format_pagination(_), do: ""
+
+  defp format_severity_indicator(severity) do
+    case String.downcase(severity || "") do
+      "critical" -> "[CRITICAL]"
+      "high" -> "[HIGH]"
+      "medium" -> "[MEDIUM]"
+      "low" -> "[LOW]"
+      _ -> "[UNKNOWN]"
+    end
+  end
 end

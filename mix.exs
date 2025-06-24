@@ -3,11 +3,12 @@ defmodule ZeroPath.MCP.MixProject do
 
   def project do
     [
-      app: :zeropath_mcp,
+      app: :zero_path_mcp,
       version: "0.1.0",
-      elixir: "~> 1.19-rc",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      releases: releases()
     ]
   end
 
@@ -24,7 +25,17 @@ defmodule ZeroPath.MCP.MixProject do
     [
       {:hermes_mcp, "~> 0.10"},
       {:req, "~> 0.5"},
-      {:bandit, "~> 1.0"}
+      {:bandit, "~> 1.0"},
+      {:jason, "~> 1.4"}
+    ]
+  end
+
+  defp releases do
+    [
+      zero_path_mcp: [
+        include_executables_for: [:unix],
+        steps: [:assemble, :tar]
+      ]
     ]
   end
 end

@@ -3,7 +3,7 @@ defmodule ZeroPath.MCP.Client do
   HTTP client for Zeropath API requests
   """
 
-  @base_url "https://zeropath.com/api/v1"
+  alias ZeroPath.MCP.Config
 
   def search_vulnerabilities(params \\ %{}) do
     make_request("/issues/search", params)
@@ -18,19 +18,21 @@ defmodule ZeroPath.MCP.Client do
   end
 
   defp make_request(path, body) do
-    token_id = System.get_env("ZEROPATH_TOKEN_ID")
-    token_secret = System.get_env("ZEROPATH_TOKEN_SECRET")
-
-    if !token_id || !token_secret do
-      {:error, "Zeropath API credentials not found in environment variables"}
+    if !Config.zeropath_configured?() do
+      {:error, "Zeropath API credentials not configured"}
     else
+      token_id = Config.zeropath_token_id()
+      token_secret = Config.zeropath_token_secret()
+
       headers = [
         {"X-ZeroPath-API-Token-Id", token_id},
         {"X-ZeroPath-API-Token-Secret", token_secret},
         {"Content-Type", "application/json"}
       ]
 
-      case Req.post(@base_url <> path, json: body, headers: headers) do
+      url = Config.zeropath_base_url() <> path
+
+      case Req.post(url, json: body, headers: headers) do
         {:ok, %{status: 200, body: body}} ->
           {:ok, body}
 

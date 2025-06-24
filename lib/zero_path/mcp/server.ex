@@ -3,7 +3,6 @@ defmodule ZeroPath.MCP.Server do
 
   use Hermes.Server, name: "zeropath", version: "0.1.0", capabilities: [:tools]
 
-  # Register the tools
   component(ZeroPath.MCP.Tools.SearchVulnerabilities)
   component(ZeroPath.MCP.Tools.GetIssue)
   component(ZeroPath.MCP.Tools.ApprovePatch)
